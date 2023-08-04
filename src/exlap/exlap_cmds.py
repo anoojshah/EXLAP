@@ -7,7 +7,6 @@ import exlap_v2 as api
 # Because VAG starts at 99
 session_number = 98
 
-
 def conn_count():
     """exlap client message counter included in every client created EXLAP cmd
     to let you track responses
@@ -798,6 +797,33 @@ def Sub_hevOperationMode():
     message.set_Subscribe(subscribe)
     return str(message)
 
+def Sub_chassisUndersteering():
+    """
+    capability to be determined
+    """
+    message = api.Req()
+    conn_count()
+    message.set_id(session_number)
+    subscribe = api.Subscribe()
+    subscribe.set_url("chassisUndersteering")
+    subscribe.set_ival(100)
+    subscribe.set_timeStamp("true")
+    message.set_Subscribe(subscribe)
+    return str(message)
+
+def Sub_chassisOversteering():
+    """
+    capability to be determined
+    """
+    message = api.Req()
+    conn_count()
+    message.set_id(session_number)
+    subscribe = api.Subscribe()
+    subscribe.set_url("chassisOversteering")
+    subscribe.set_ival(100)
+    subscribe.set_timeStamp("true")
+    message.set_Subscribe(subscribe)
+    return str(message)
 
 def Sub_combustionEngineInjection():
     """
@@ -855,6 +881,28 @@ def Sub_espTyreVelocities():
     message.set_id(session_number)
     subscribe = api.Subscribe()
     subscribe.set_url("espTyreVelocities")
+    subscribe.set_ival(0)
+    subscribe.set_timeStamp("true")
+    message.set_Subscribe(subscribe)
+    return str(message)
+
+def Sub_suspensionProfile():
+    message = api.Req()
+    conn_count()
+    message.set_id(session_number)
+    subscribe = api.Subscribe()
+    subscribe.set_url("suspensionProfile")
+    subscribe.set_ival(0)
+    subscribe.set_timeStamp("true")
+    message.set_Subscribe(subscribe)
+    return str(message)
+
+def Sub_suspensionStates():
+    message = api.Req()
+    conn_count()
+    message.set_id(session_number)
+    subscribe = api.Subscribe()
+    subscribe.set_url("suspensionStates")
     subscribe.set_ival(0)
     subscribe.set_timeStamp("true")
     message.set_Subscribe(subscribe)

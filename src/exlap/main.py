@@ -13,18 +13,21 @@ import exlap_cmds as cmd
 import exlap_v2 as api
 from lxml import etree
 import streams
-import creds
+#import creds
 
 
 # --Global--
 # Because VAG starts at 99
 session_number = 98
 nonce = ""
-user = creds.user
-password = creds.password
+user = "PHP-D22200" #creds.user
+#user = "Test_TB-105000"
+#password = "s4T2K6BAv0a7LQvrv3vdaUl17xEl2WJOpTmAThpRZe0=="
+password = "Gv2g7nOS9DN1bkQA9YFDttZ1QqNeUDzg/2rzrnEKH70=" #creds.password
+carIP = "10.173.189.1"  #IP of car
 authd = None
 # netcat debug flag
-debug_127 = 1
+debug_127 = 0
 # --/Global--
 
 
@@ -107,6 +110,7 @@ def Req_Auth_Response(nonce):
     digest = exlap_sha256_as_b64(user, password, nonce, cnonce)
     auth.set_digest(digest)
     auth.set_user(user)
+    print('sending username')
     message.set_Authenticate(auth)
     return str(message)
 
@@ -123,6 +127,7 @@ async def nonce_worker(data):
             memoryElem = doc.find("Challenge")
             nonce = memoryElem.get("nonce")
             authd = True
+            print('autd set to true')
         except Exception as e:
             print(
                 f"EXLAP Server response does not include Challenge - {e}\nResponse: {doc}"
@@ -177,6 +182,7 @@ class AsyncTCPClient:
         """parses recieved messages from tcp socket. Looks for exlap xml tags,
         </Rsp>, </Req>, </Dat>, or </Status>.
         """
+        print("iin receive()")
         data = await self.reader.readuntil(
             [b"</Rsp>", b"</Req>", b"</Dat>", b"</Status>"]
         )
@@ -235,10 +241,12 @@ async def main():
 
     # TODO localhost for testing via netcat
     if debug_127 == 0:
-        client = AsyncTCPClient("10.173.189.1", 25010)
+        #client = AsyncTCPClient("192.168.2.128", 25010)
+        client = AsyncTCPClient(carIP, 25010)
     else:
         client = AsyncTCPClient("127.0.0.1", 8888)
 
+    print('trying to connect to car')
     await client.connect()
 
     exlap_queue = asyncio.Queue()
@@ -249,6 +257,7 @@ async def main():
         TODO - this can be made much more robust"""
         global authd, nonce
         while not authd:
+            print('Starting auth process')
             # Read initial server response
             await client.receive()
             # Send auth challenge
@@ -403,12 +412,36 @@ async def main():
     #     cmd.Sub_driveMode(),
     #     cmd.Sub_lightState_rear(),
     #     cmd.Sub_maxOutputPower(),
-    #     cmd.Sub_System_Language()
     #     ]
     exlap_commands = [
+        #cmd.Req_Dir('*'),
+        #cmd.Sub_vehicleIdenticationNumber(),
+        cmd.Sub_Car_vehicleInformation(),
         cmd.Sub_lateralAcceleration(),
         cmd.Sub_espTyreVelocities(),
-        cmd.Sub_longitudinalAcceleration()
+        cmd.Sub_vehicleSpeed(),
+        cmd.Sub_longitudinalAcceleration(),
+        cmd.Sub_wheelAngle(),
+        #cmd.Sub_currentOutputPower(),
+        cmd.Sub_torqueDistribution(),
+        cmd.Sub_acceleratorPosition(),
+        cmd.Sub_gearboxOilTemperature(),
+        cmd.Sub_yawRate(),
+        cmd.Sub_brakePressure(),
+        cmd.Sub_Nav_GeoPosition(),
+        cmd.Sub_torqueDistribution(),
+      #  cmd.Sub_currentOutputPower(),
+      #  cmd.Sub_temperatureRearLeft(),
+      #  cmd.Sub_temperatureRearRight(),
+      #  cmd.Sub_allWheelDriveTorque(),
+        cmd.Sub_relAllWheelDriveTorque(),
+        #cmd.Sub_currentOutputPower(),
+        #cmd.Sub_powermeter(),
+        cmd.Sub_suspensionProfile(),
+        cmd.Sub_suspensionStates(),
+        cmd.Sub_chassisUndersteering(),
+        cmd.Sub_chassisOversteering(),
+        cmd.Sub_temperatureRearLeft(),
         ]
     for cmds in exlap_commands:
         await exlap_queue.put(cmds)
@@ -421,7 +454,7 @@ async def main():
             # Get a "work item" out of the queue.
             task = await exlap_queue.get()
             # Work on the task
-            # print(task)
+            print(task)
             await client.send(task)
             # Notify the queue that the "work item" has been processed.
             exlap_queue.task_done()
