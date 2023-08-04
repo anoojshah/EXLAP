@@ -1,3 +1,5 @@
+# Forked from edub0's EXLAP project found here: https://github.com/edub0/EXLAP  Please see his github for more details.
+
 # EXLAP 1.3 Schema and Python interface
  
 This projects purpose is to demonstrate the EXLAP protocol using python. You
