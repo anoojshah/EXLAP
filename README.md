@@ -1,5 +1,7 @@
 # Forked from edub0's EXLAP project found here: https://github.com/edub0/EXLAP  Please see his github for more details.
 
+New utility "parse_exlap_log.py" added to convert the original EXLAP data stored as XML into a csv file.  This utility iterates through the XML blobs and handles the edge cases around different blob types.
+
 # EXLAP 1.3 Schema and Python interface
  
 This projects purpose is to demonstrate the EXLAP protocol using python. You
