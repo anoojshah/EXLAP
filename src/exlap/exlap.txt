@@ -1,0 +1,207 @@
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="response" user="PHP-D22200" cnonce="KYlaqrzS5d+dUKazYlOrvQ==" digest="VZX7HgRhVBLdF73uhb/OGwmAtH/hcdWxTaLBMgMnyCU="/>
+</Req>
+<Req id="101">
+    <Subscribe url="Car_vehicleInformation" ival="100" timeStamp="true"/>
+</Req>
+<Req id="102">
+    <Subscribe url="lateralAcceleration" timeStamp="true"/>
+</Req>
+<Req id="103">
+    <Subscribe url="espTyreVelocities" timeStamp="true"/>
+</Req>
+<Req id="104">
+    <Subscribe url="vehicleSpeed" ival="100" timeStamp="true"/>
+</Req>
+<Req id="105">
+    <Subscribe url="longitudinalAcceleration" ival="100" timeStamp="true"/>
+</Req>
+<Req id="106">
+    <Subscribe url="wheelAngle" ival="100" timeStamp="true"/>
+</Req>
+<Req id="107">
+    <Subscribe url="torqueDistribution" ival="100" timeStamp="true"/>
+</Req>
+<Req id="108">
+    <Subscribe url="acceleratorPosition" ival="100" timeStamp="true"/>
+</Req>
+<Req id="109">
+    <Subscribe url="gearboxOilTemperature" ival="100" timeStamp="true"/>
+</Req>
+<Req id="110">
+    <Subscribe url="yawRate" ival="100" timeStamp="true"/>
+</Req>
+<Req id="111">
+    <Subscribe url="brakePressure" ival="100" timeStamp="true"/>
+</Req>
+<Req id="112">
+    <Subscribe url="Nav_GeoPosition" ival="100" timeStamp="true"/>
+</Req>
+<Req id="113">
+    <Subscribe url="torqueDistribution" ival="100" timeStamp="true"/>
+</Req>
+<Req id="114">
+    <Subscribe url="relAllWheelDriveTorque" ival="100" timeStamp="true"/>
+</Req>
+<Req id="115">
+    <Subscribe url="suspensionProfile" ival="100" timeStamp="true"/>
+</Req>
+<Req id="116">
+    <Subscribe url="suspensionStates" ival="100" timeStamp="true"/>
+</Req>
+<Req id="117">
+    <Subscribe url="chassisUndersteering" ival="100" timeStamp="true"/>
+</Req>
+<Req id="118">
+    <Subscribe url="chassisOversteering" ival="100" timeStamp="true"/>
+</Req>
+<Req id="119">
+    <Subscribe url="temperatureRearLeft" ival="100" timeStamp="true"/>
+</Req>
+<Req id="120">
+    <Alive/>
+</Req>
+<Req id="121">
+    <Alive/>
+</Req>
+<Req id="122">
+    <Alive/>
+</Req>
+<Req id="123">
+    <Alive/>
+</Req>
+<Req id="124">
+    <Alive/>
+</Req>
+<Req id="125">
+    <Alive/>
+</Req>
+<Req id="98">
+    <Authenticate phase="challenge" useHash="sha256"/>
+</Req>
+<Req id="98">
+    <Authenticate phase="response" user="PHP-D22200" cnonce="YJXpqbQvqE8H48ghkmH5DA==" digest="As59WoHe62eud/3F+1ts3euWx7q27TzPi/8QpvtJM4M="/>
+</Req>
+<Req id="101">
+    <Subscribe url="Car_vehicleInformation" ival="100" timeStamp="true"/>
+</Req>
+<Req id="102">
+    <Subscribe url="lateralAcceleration" timeStamp="true"/>
+</Req>
+<Req id="103">
+    <Subscribe url="espTyreVelocities" timeStamp="true"/>
+</Req>
+<Req id="104">
+    <Subscribe url="vehicleSpeed" ival="100" timeStamp="true"/>
+</Req>
+<Req id="105">
+    <Subscribe url="longitudinalAcceleration" ival="100" timeStamp="true"/>
+</Req>
+<Req id="106">
+    <Subscribe url="wheelAngle" ival="100" timeStamp="true"/>
+</Req>
+<Req id="107">
+    <Subscribe url="torqueDistribution" ival="100" timeStamp="true"/>
+</Req>
+<Req id="108">
+    <Subscribe url="acceleratorPosition" ival="100" timeStamp="true"/>
+</Req>
+<Req id="109">
+    <Subscribe url="gearboxOilTemperature" ival="100" timeStamp="true"/>
+</Req>
+<Req id="110">
+    <Subscribe url="yawRate" ival="100" timeStamp="true"/>
+</Req>
+<Req id="111">
+    <Subscribe url="brakePressure" ival="100" timeStamp="true"/>
+</Req>
+<Req id="112">
+    <Subscribe url="Nav_GeoPosition" ival="100" timeStamp="true"/>
+</Req>
+<Req id="113">
+    <Subscribe url="torqueDistribution" ival="100" timeStamp="true"/>
+</Req>
+<Req id="114">
+    <Subscribe url="relAllWheelDriveTorque" ival="100" timeStamp="true"/>
+</Req>
+<Req id="115">
+    <Subscribe url="suspensionProfile" ival="100" timeStamp="true"/>
+</Req>
+<Req id="116">
+    <Subscribe url="suspensionStates" ival="100" timeStamp="true"/>
+</Req>
+<Req id="117">
+    <Subscribe url="chassisUndersteering" ival="100" timeStamp="true"/>
+</Req>
+<Req id="118">
+    <Subscribe url="chassisOversteering" ival="100" timeStamp="true"/>
+</Req>
+<Req id="119">
+    <Subscribe url="temperatureRearLeft" ival="100" timeStamp="true"/>
+</Req>
+<Req id="120">
+    <Alive/>
+</Req>
+<Req id="121">
+    <Alive/>
+</Req>
+<Req id="122">
+    <Alive/>
+</Req>
+<Req id="123">
+    <Alive/>
+</Req>
+<Req id="124">
+    <Alive/>
+</Req>
+<Req id="125">
+    <Alive/>
+</Req>
+<Req id="126">
+    <Alive/>
+</Req>
+<Req id="127">
+    <Alive/>
+</Req>
+<Req id="128">
+    <Alive/>
+</Req>
+<Req id="129">
+    <Alive/>
+</Req>
+<Req id="130">
+    <Alive/>
+</Req>
+<Req id="131">
+    <Alive/>
+</Req>
+<Req id="132">
+    <Alive/>
+</Req>
+<Req id="133">
+    <Alive/>
+</Req>
+<Req id="134">
+    <Alive/>
+</Req>
+<Req id="135">
+    <Alive/>
+</Req>

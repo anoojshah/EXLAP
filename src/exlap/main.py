@@ -2,7 +2,7 @@
 import sys
 
 sys.path.append(".")
-
+import argparse
 import asyncio
 import base64
 import hashlib
@@ -11,9 +11,11 @@ import aiofiles
 
 import exlap_cmds as cmd
 import exlap_v2 as api
-from lxml import etree
+from datetime import datetime
 import streams
-#import creds
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import ParseError
+
 
 
 # --Global--
@@ -28,6 +30,9 @@ carIP = "10.173.189.1"  #IP of car
 authd = None
 # netcat debug flag
 debug_127 = 0
+outputFile = 'exlap.txt'  #default file if user does not provide one
+outputXML = True  #default is true
+data = []
 # --/Global--
 
 
@@ -114,6 +119,41 @@ def Req_Auth_Response(nonce):
     message.set_Authenticate(auth)
     return str(message)
 
+def parseDatObject(datBlob):
+    
+    outputString=""
+    name = ""
+    val = ""
+    timestamp = datBlob.get('timeStamp')
+    url = datBlob.get('url')
+
+    #reformat timestamp to show minute:second.microseconds
+    timestamp = timestamp[:-6] #remove the timezone offset as it messes up parsing
+    t1 = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f")
+    formatted_time = f"{t1.minute:02d}:{t1.second:02d}.{t1.microsecond:06d}"
+
+    #handle special cases such as (i) multiple values for espTyreVelocities, (ii) <Rel> instead of <Abs> for some commands
+    if url == 'espTyreVelocities' or url == 'Nav_GeoPosition':
+    #    print('timestamp:', formatted_time, ' found ', url)
+        abs_tags = datBlob.findall('Abs')
+        for abs_tag in abs_tags:
+            name = url + '_' + abs_tag.get('name')
+            val = abs_tag.get('val')
+            outputString = outputString + formatted_time + "," + name + "," + val + "\n"
+        
+    elif url.startswith('rel') or url.startswith('chassis') or url.startswith('acceleratorPosition'):
+        rel_tag = datBlob.find('Rel')
+        name = rel_tag.get('name')
+        val = rel_tag.get('val')                
+    else:
+    #    print('timestamp: ', timestamp, ' url: ', url, 'abs: ', dat.find('Abs').get('name'), 'val: ',dat.find('Abs').get('val') )
+        abs_tag = datBlob.find('Abs')
+        name = abs_tag.get('name')
+        val = abs_tag.get('val')       
+
+    outputString = formatted_time + "," + name + "," + val + "\n"
+    return outputString
+
 
 async def nonce_worker(data):
     """
@@ -123,7 +163,7 @@ async def nonce_worker(data):
     global nonce, authd
     if nonce == "":
         try:
-            doc = etree.XML(data.decode())
+            doc = ET.XML(data.decode())
             memoryElem = doc.find("Challenge")
             nonce = memoryElem.get("nonce")
             authd = True
@@ -171,28 +211,39 @@ class AsyncTCPClient:
     async def connect(self):
         # calling our patched asyncio streams class
         self.reader, self.writer = await streams.open_connection(self.host, self.port)
+        print("connect(): connection opened" )
 
     async def send(self, message):
         self.writer.write(message.encode("utf8"))
         await self.writer.drain()
         print(f"\nSent: {message}\n")
-        await write_to_file('exlap.txt',message)
+        #await write_to_file(outputFile,message)
 
     async def receive(self):
         """parses recieved messages from tcp socket. Looks for exlap xml tags,
         </Rsp>, </Req>, </Dat>, or </Status>.
         """
-        print("iin receive()")
+        print("in receive()")
+        
         data = await self.reader.readuntil(
             [b"</Rsp>", b"</Req>", b"</Dat>", b"</Status>"]
         )
-        await write_to_file('exlap.txt',data.decode('utf-8'))
         if nonce == "":
             try:
                 await nonce_worker(data)
             except:
                 print("nonce challenge not found - unauthenticated or still looking")
         print(f"\nReceived: {data.decode('utf8')}\n")
+        '''
+        if "<Dat" in data.decode('utf-8'):
+            print("received vehicle data signals: ", data.decode('utf-8'))
+            tree = ET.parse(data.decode('utf-8'))
+            for datBlob in tree.findall('.//Dat'):
+                outputString = parseDatObject(datBlob)
+                print("DEBUG: processed output ", outputString)
+            await write_to_file(outputFile,outputString)
+'''
+        
         
 
         # TODO - Response Functions
@@ -239,14 +290,22 @@ class AsyncTCPClient:
 
 async def main():
 
+    parser = argparse.ArgumentParser(description="EXLAP Telemetry - Connects to a VW Group vehicle and reads vehicle data to a csv file")
+    parser.add_argument("outputFile", help="output file name")
+    
+
+    args = parser.parse_args()
+    outputFile = args.outputFile
+
+
     # TODO localhost for testing via netcat
     if debug_127 == 0:
-        #client = AsyncTCPClient("192.168.2.128", 25010)
+        print('trying to connect to car at IP: ', carIP)
         client = AsyncTCPClient(carIP, 25010)
     else:
+        print('debug networking mode')
         client = AsyncTCPClient("127.0.0.1", 8888)
-
-    print('trying to connect to car')
+    
     await client.connect()
 
     exlap_queue = asyncio.Queue()
@@ -444,6 +503,7 @@ async def main():
         cmd.Sub_temperatureRearLeft(),
         ]
     for cmds in exlap_commands:
+        print("sending commands to car for data subscription")
         await exlap_queue.put(cmds)
 
 
