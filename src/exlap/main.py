@@ -8,6 +8,7 @@ import base64
 import hashlib
 import random
 import aiofiles
+import re
 
 import exlap_cmds as cmd
 import exlap_v2 as api
@@ -119,11 +120,14 @@ def Req_Auth_Response(nonce):
     message.set_Authenticate(auth)
     return str(message)
 
-def parseDatObject(datBlob):
+async def parseDatObject(queue):
     
     outputString=""
     name = ""
     val = ""
+
+    datBlob = await queue.get()
+    print("parseDatObject: received data blog", datBlob)
     timestamp = datBlob.get('timeStamp')
     url = datBlob.get('url')
 
@@ -152,7 +156,7 @@ def parseDatObject(datBlob):
         val = abs_tag.get('val')       
 
     outputString = formatted_time + "," + name + "," + val + "\n"
-    return outputString
+    await write_to_file(outputFile,outputString)
 
 
 async def nonce_worker(data):
@@ -219,7 +223,7 @@ class AsyncTCPClient:
         print(f"\nSent: {message}\n")
         #await write_to_file(outputFile,message)
 
-    async def receive(self):
+    async def receive(self, dataQueue):
         """parses recieved messages from tcp socket. Looks for exlap xml tags,
         </Rsp>, </Req>, </Dat>, or </Status>.
         """
@@ -228,12 +232,25 @@ class AsyncTCPClient:
         data = await self.reader.readuntil(
             [b"</Rsp>", b"</Req>", b"</Dat>", b"</Status>"]
         )
+        print(f"\nReceived: {data.decode('utf8')}\n")
+
         if nonce == "":
             try:
+                print("RECEIVE: waiting for nonce_worker()")
                 await nonce_worker(data)
             except:
                 print("nonce challenge not found - unauthenticated or still looking")
-        print(f"\nReceived: {data.decode('utf8')}\n")
+        
+        # if we got vehicle signals, put it in the queue for processing
+        if "<Dat" in data.decode('utf-8'):
+            print("received vehicle data signals: ", data.decode('utf-8'))
+            pattern = r'<Dat>(.*?)</Dat>'
+            dats = re.findall(pattern,data.decode('utf-8'))  #data blob can have multiple XMl structures so parse each one
+            for a_dat in dats:
+                print("Receive(): found a <Dat>: ", a_dat)
+                datBlob = ET.fromstring(a_dat)
+                await dataQueue.put(datBlob)
+
         '''
         if "<Dat" in data.decode('utf-8'):
             print("received vehicle data signals: ", data.decode('utf-8'))
@@ -246,42 +263,7 @@ class AsyncTCPClient:
         
         
 
-        # TODO - Response Functions
-        # Setup a response parser (use a worker after the recieve queue is cleared?)
-        # Setup response content handling, use below java for error inspiration
-        #     public final void setResponseStatus(String str) {
-        # if (str == null) {
-        #     this.status = 0;
-        # } else if (str.equals(ExlapML.STATUS_MSG_OK)) {
-        #     this.status = 0;
-        # } else if (str.equals(ExlapML.STATUS_MSG_ERROR)) {
-        #     this.status = 1;
-        # } else if (str.equals(ExlapML.STATUS_MSG_NOTIMPLEMENTED)) {
-        #     this.status = 2;
-        # } else if (str.equals(ExlapML.STATUS_MSG_SUBSCRIPTIONLIMIT_REACHED)) {
-        #     this.status = 3;
-        # } else if (str.equals(ExlapML.STATUS_MSG_NOMATCHINGURL)) {
-        #     this.status = 4;
-        # } else if (str.equals(ExlapML.STATUS_MSG_VERSIONNOTSUPPORTED)) {
-        #     this.status = 5;
-        # } else if (str.equals(ExlapML.STATUS_MSG_AUTHENTICATIONFAILED)) {
-        #     this.status = 6;
-        # } else if (str.equals(ExlapML.STATUS_MSG_SYNTAXERROR)) {
-        #     this.status = 8;
-        # } else if (str.equals(ExlapML.STATUS_MSG_INTERNALERROR)) {
-        #     this.status = 9;
-        # } else if (str.equals(ExlapML.STATUS_MSG_ACCESSVIOLATION)) {
-        #     this.status = 10;
-        # } else if (str.equals(ExlapML.STATUS_MSG_INVALIDPARAMATER)) {
-        #     this.status = 11;
-        # } else if (str.equals(ExlapML.STATUS_MSG_PROCESSING)) {
-        #     this.status = 12;
-        # } else if (str.equals(ExlapML.STATUS_MSG_NOSUBSCRIPTION)) {
-        #     this.status = 1;
-        # } else {
-        #     throw new IllegalArgumentException("Illegal response status: " + str);
-        # }
-        # Setup
+        
 
     async def close(self):
         self.writer.close()
@@ -290,25 +272,29 @@ class AsyncTCPClient:
 
 async def main():
 
+    #define command line arguments & read them
     parser = argparse.ArgumentParser(description="EXLAP Telemetry - Connects to a VW Group vehicle and reads vehicle data to a csv file")
-    parser.add_argument("outputFile", help="output file name")
+    parser.add_argument("outputfile", help="output file name")
     
-
     args = parser.parse_args()
-    outputFile = args.outputFile
+    outputFile = args.outputfile
+    print("outfile file: ", outputFile)
 
 
-    # TODO localhost for testing via netcat
+    # try to connect to car
     if debug_127 == 0:
         print('trying to connect to car at IP: ', carIP)
         client = AsyncTCPClient(carIP, 25010)
     else:
         print('debug networking mode')
         client = AsyncTCPClient("127.0.0.1", 8888)
-    
     await client.connect()
 
+    #create queue for sending commands to the car
     exlap_queue = asyncio.Queue()
+
+    #create queue to process data from the car
+    processSignals = asyncio.Queue()
     
     # Exlap Authentication
     async def exlap_auth_worker():
@@ -318,12 +304,12 @@ async def main():
         while not authd:
             print('Starting auth process')
             # Read initial server response
-            await client.receive()
+            await client.receive(processSignals)
             # Send auth challenge
             await client.send(Req_Auth_Challenge())
             await asyncio.sleep(2)
             # Read response
-            await client.receive()
+            await client.receive(processSignals)
             print('waiting for connection...<auth_worker>')
         await client.send(Req_Auth_Response(nonce))
         print('Connected! <auth_worker>')
@@ -331,147 +317,6 @@ async def main():
     await exlap_auth_worker()
     # /Exlap Authentication
 
-#### Exlap Commands ####
-#### this section is where you add the commands you want to subscribe ####
-    # exlap_commands = [
-    #     cmd.Sub_displayNightDesign(),
-    #     cmd.Sub_shortTermConsumptionPrimary(),
-    #     cmd.Sub_serviceInspection(),
-    #     cmd.Sub_Nav_GpxImport(),
-    #     cmd.Sub_temperature_control(),
-    #     cmd.Sub_Nav_GeoPosition(),
-    #     cmd.Sub_Car_vehicleState(),
-    #     cmd.Sub_System_HMISkin(),
-    #     cmd.Sub_unitTimeFormat(),
-    #     cmd.Sub_gearboxOilTemperature(),
-    #     cmd.Sub_ExAc_Resources(),
-    #     cmd.Sub_relChargingAirPressure(),
-    #     cmd.Sub_reverseGear(),
-    #     cmd.Sub_Nav_CurrentPosition(),
-    #     cmd.Sub_vehicleDate(),
-    #     cmd.Sub_acceleratorKickDown(),
-    #     cmd.Sub_System_RestrictionMode(),
-    #     cmd.Sub_dayMilage_HP(),
-    #     cmd.Sub_offroadTiltAngle(),
-    #     cmd.Sub_Nav_GuidanceDestination(),
-    #     cmd.Sub_unitDateFormat(),
-    #     cmd.Sub_longTermConsumptionPrimary(),
-    #     cmd.Sub_outsideTemperature(),
-    #     cmd.Sub_clampState(),
-    #     cmd.Sub_shortTermConsumptionSecondary(),
-    #     cmd.Sub_combustionEngineDisplacement(),
-    #     cmd.Sub_Nav_StartGuidance(),
-    #     cmd.Sub_oilTemperature(),
-    #     cmd.Sub_oilLevel(),
-    #     cmd.Sub_stopWatch_control(),
-    #     cmd.Sub_Nav_GuidanceRemaining(),
-    #     cmd.Sub_hevacConfiguration(),
-    #     cmd.Sub_Nav_Altitude(),
-    #     cmd.Sub_tyreTemperatures(),
-    #     cmd.Sub_driverIsBraking(),
-    #     cmd.Sub_ambienceLight_sets(),
-    #     cmd.Sub_engineTypes(),
-    #     cmd.Sub_chassisUndersteering(),
-    #     cmd.Sub_gearTransmissionMode(),
-    #     cmd.Sub_blinkingState(),
-    #     cmd.Sub_longTermConsumptionSecondary(),
-    #     cmd.Sub_stopWatch_totalTime(),
-    #     cmd.Sub_vehicleTime(),
-    #     cmd.Sub_coastingIsActive(),
-    #     cmd.Sub_seatHeater_zone1(),
-    #     cmd.Sub_seatHeater_zone2(),
-    #     cmd.Sub_Nav_Heading(),
-    #     cmd.Sub_seatHeater_zone3(),
-    #     cmd.Sub_Car_ambienceLightColour(),
-    #     cmd.Sub_seatHeater_zone4(),
-    #     cmd.Sub_hevOperationMode(),
-    #     cmd.Sub_combustionEngineInjection(),
-    #     cmd.Sub_ExAc_GetToken(),
-    #     cmd.Sub_currentGear(),
-    #     cmd.Sub_espTyreVelocities(),
-    #     cmd.Sub_fuelLevelState(),
-    #     cmd.Sub_Nav_GuidanceState(),
-    #     cmd.Sub_totalDistance(),
-    #     cmd.Sub_tyreRequiredPressures(),
-    #     cmd.Sub_cycleConsumptionPrimary(),
-    #     cmd.Sub_startStopState(),
-    #     cmd.Sub_Context_States(),
-    #     cmd.Sub_tyreStates(),
-    #     cmd.Sub_unitPressure(),
-    #     cmd.Sub_espPassiveSensing(),
-    #     cmd.Sub_System_DayNight(),
-    #     cmd.Sub_tyreTemperatures_HP(),
-    #     cmd.Sub_ambienceLight_installation(),
-    #     cmd.Sub_brakePressure(),
-    #     cmd.Sub_hevacFanLevelRear(),
-    #     cmd.Sub_maxChargingAirPressure(),
-    #     cmd.Sub_lightState_front(),
-    #     cmd.Sub_currentTorque(),
-    #     cmd.Sub_clutch(),
-    #     cmd.Sub_consumptionShortTermGeneral(),
-    #     cmd.Sub_engineSpeed(),
-    #     cmd.Sub_seatVentilation_zone3(),
-    #     cmd.Sub_stopWatch_lapTime(),
-    #     cmd.Sub_seatVentilation_zone4(),
-    #     cmd.Sub_Nav_LastDestinations(),
-    #     cmd.Sub_absChargingAirPressure(),
-    #     cmd.Sub_System_UnitDistance(),
-    #     cmd.Sub_parkingBrake(),
-    #     cmd.Sub_vehicleSpeed(),
-    #     cmd.Sub_espLamp(),
-    #     cmd.Sub_longitudinalAcceleration(),
-    #     cmd.Sub_doorState(),
-    #     cmd.Sub_cycleConsumptionSecondary(),
-    #     cmd.Sub_System_ProximityRecognition(),
-    #     cmd.Sub_coolantTemperature(),
-    #     cmd.Sub_torqueDistribution(),
-    #     cmd.Sub_ambienceLight_brightness(),
-    #     cmd.Sub_vehicleIdenticationNumber(),
-    #     cmd.Sub_stopWatch_previousLapTime(),
-    #     cmd.Sub_recuperationLevel(),
-    #     cmd.Sub_chassisOversteering(),
-    #     cmd.Sub_tankLevelSecondary(),
-    #     cmd.Sub_unitTemperature(),
-    #     cmd.Sub_lateralAcceleration(),
-    #     cmd.Sub_temperatureRearRight(),
-    #     cmd.Sub_unitVolume(),
-    #     cmd.Sub_acceleratorPosition(),
-    #     cmd.Sub_Car_vehicleInformation(),
-    #     cmd.Sub_offroadTiltAngleMaxValues(),
-    #     cmd.Sub_recommendedGear(),
-    #     cmd.Sub_temperatureRearLeft(),
-    #     cmd.Sub_ExAc_TouchToken(),
-    #     cmd.Sub_consumptionLongTermGeneral(),
-    #     cmd.Sub_allWheelDriveTorque(),
-    #     cmd.Sub_currentConsumptionSecondary(),
-    #     cmd.Sub_powermeter(),
-    #     cmd.Sub_tankLevelPrimary(),
-    #     cmd.Sub_relAllWheelDriveTorque(),
-    #     cmd.Sub_navPosition_HP(),
-    #     cmd.Sub_shiftRecommendation(),
-    #     cmd.Sub_fuelWarningSecondaryTank(),
-    #     cmd.Sub_wheelAngle(),
-    #     cmd.Sub_accIsActive(),
-    #     cmd.Sub_currentOutputPower(),
-    #     cmd.Sub_ExAc_ReleaseToken(),
-    #     cmd.Sub_currentConsumptionPrimary(),
-    #     cmd.Sub_suspensionProfile(),
-    #     cmd.Sub_Nav_StopGuidance(),
-    #     cmd.Sub_Nav_ResolveAddress(),
-    #     cmd.Sub_suspensionStates(),
-    #     cmd.Sub_ambienceLight_control(),
-    #     cmd.Sub_dayMilage(),
-    #     cmd.Sub_batteryVoltage(),
-    #     cmd.Sub_ambienceLight_profiles(),
-    #     cmd.Sub_tyrePressures(),
-    #     cmd.Sub_fuelWarningPrimaryTank(),
-    #     cmd.Sub_serviceOil(),
-    #     cmd.Sub_Nav_ResolveLastDestination(),
-    #     cmd.Sub_yawRate(),
-    #     cmd.Sub_driveMode(),
-    #     cmd.Sub_lightState_rear(),
-    #     cmd.Sub_maxOutputPower(),
-    #     ]
     exlap_commands = [
         #cmd.Req_Dir('*'),
         #cmd.Sub_vehicleIdenticationNumber(),
@@ -540,7 +385,7 @@ async def main():
     asyncio.create_task(heartbeat())
 
 
-
+     
     # TODO - Worker functions:
     # - ingest the bootstrap exlap command list
     # - Insert the commands into the main() loop to be sent
@@ -563,7 +408,7 @@ async def main():
 
     while True:
         #print('main True loop')
-        await client.receive()
+        await asyncio.gather(client.receive(processSignals), parseDatObject(processSignals))
         # await future_main() go here
 
 asyncio.run(main())
